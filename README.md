@@ -45,7 +45,6 @@ with open(OUTPUT_FILE, 'w') as out:
 
 print("Found failed login attempts for users: {}".format(", ".join(failed_users)))
 
-
 print("\nChecking home directory permissions (looking for 777)...")
 insecure_users = []
 
@@ -60,4 +59,21 @@ try:
                 if os.path.isdir(home_dir):
                     try:
                         perm_mode = os.stat(home_dir).st_mode
-                        # Extract the last three octal digits (e.g., '777')
+                        perm_str = oct(stat.S_IMODE(perm_mode))[-3:]
+                        
+                        if perm_str == "777":
+                            insecure_users.append((username, home_dir, perm_str))
+                    except:
+                        pass
+
+except:
+    print("Error reading {}. Skipping permission check.".format(PASSWD_FILE))
+
+print("\n--- Users with Insecure Permissions (777) ---")
+if insecure_users:
+    for user, home, perm in insecure_users:
+        print("  --> User: {}, Home: {}, Permissions: {}".format(user, home, perm))
+else:
+    print("  All checked home directories have secure permissions.")
+print("-----------------------------------------------------")
+print("Done! Results saved to {}.".format(OUTPUT_FILE))
