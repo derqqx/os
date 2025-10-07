@@ -1,6 +1,11 @@
-import re
+import re             
 from collections import Counter
 import os
+
+cd ~/security_lab
+sudo cp /var/log/auth.log sample_log.txt
+sudo chmod 644 sample_log.txt
+
 
 log_file = "/var/log/auth.log"
 output_file = "suspicious_activity.txt"
