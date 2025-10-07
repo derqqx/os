@@ -4,7 +4,7 @@ import os
 import stat
 import sys
 
-LOG_FILE = "/var/log/auth.log" 
+LOG_FILE = "/var/log/auth.log"
 PASSWD_FILE = "/etc/passwd"
 OUTPUT_FILE = "suspicious_activity.txt"
 
@@ -19,15 +19,12 @@ try:
     with open(LOG_FILE, 'r', errors='ignore') as f:
         for line in f:
             if "Failed password" in line:
-                
                 ip_match = ip_regex.search(line)
                 if ip_match:
                     failed_ips.append(ip_match.group(1))
-                
                 user_match = user_regex.search(line)
                 if user_match:
                     failed_users.add(user_match.group(2))
-
 except FileNotFoundError:
     print("Error: Log file not found at {}. Exiting.".format(LOG_FILE))
     sys.exit(1)
@@ -55,17 +52,14 @@ try:
             if len(parts) >= 6:
                 username = parts[0]
                 home_dir = parts[5].strip()
-                
                 if os.path.isdir(home_dir):
                     try:
                         perm_mode = os.stat(home_dir).st_mode
                         perm_str = oct(stat.S_IMODE(perm_mode))[-3:]
-                        
                         if perm_str == "777":
                             insecure_users.append((username, home_dir, perm_str))
                     except:
                         pass
-
 except:
     print("Error reading {}. Skipping permission check.".format(PASSWD_FILE))
 
