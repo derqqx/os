@@ -1,50 +1,63 @@
-import re             
+import re
 from collections import Counter
 import os
+import stat
+import sys
 
-cd ~/security_lab
-sudo cp /var/log/auth.log sample_log.txt
-sudo chmod 644 sample_log.txt
+LOG_FILE = "/var/log/auth.log" 
+PASSWD_FILE = "/etc/passwd"
+OUTPUT_FILE = "suspicious_activity.txt"
 
+print("Starting log analysis...")
+failed_ips = []
+failed_users = set()
 
-log_file = "/var/log/auth.log"
-output_file = "suspicious_activity.txt"
+ip_regex = re.compile(r'from (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+user_regex = re.compile(r'for (invalid user |)(\w+)')
 
-with open(log_file, "r", errors="ignore") as f:
-    logs = f.readlines()
+try:
+    with open(LOG_FILE, 'r', errors='ignore') as f:
+        for line in f:
+            if "Failed password" in line:
+                
+                ip_match = ip_regex.search(line)
+                if ip_match:
+                    failed_ips.append(ip_match.group(1))
+                
+                user_match = user_regex.search(line)
+                if user_match:
+                    failed_users.add(user_match.group(2))
 
-ip_pattern = re.compile(r"(\d{1,3}(?:\.\d{1,3}){3})")
-user_pattern = re.compile(r"Failed password for (?:invalid user )?(\w+)")
+except FileNotFoundError:
+    print("Error: Log file not found at {}. Exiting.".format(LOG_FILE))
+    sys.exit(1)
+except PermissionError:
+    print("Error: Permission denied for {}. Run with 'sudo python3 security_analyzer.py'".format(LOG_FILE))
+    sys.exit(1)
 
-ips = []
-users = []
+ip_counts = Counter(failed_ips)
 
-for line in logs:
-    if "Failed password" in line:
-        ip_match = ip_pattern.search(line)
-        user_match = user_pattern.search(line)
-        if ip_match:
-            ips.append(ip_match.group(1))
-        if user_match:
-            users.append(user_match.group(1))
-
-ip_counts = Counter(ips)
-
-with open(output_file, "w") as out:
+print("Creating {}...".format(OUTPUT_FILE))
+with open(OUTPUT_FILE, 'w') as out:
     out.write("Suspicious IPs and number of failed attempts:\n")
-    out.write("=============================================\n")
     for ip, count in ip_counts.items():
-        out.write(f"{ip} - {count} attempts\n")
+        out.write("{}: {} attempts\n".format(ip, count))
 
-print(f"Suspicious activity saved to {output_file}")
+print("Found failed login attempts for users: {}".format(", ".join(failed_users)))
 
-print("\nChecking home directories permissions:")
-with open("/etc/passwd", "r") as f:
-    for line in f:
-        parts = line.split(":")
-        username = parts[0]
-        home_dir = parts[5]
-        if os.path.isdir(home_dir):
-            perm = oct(os.stat(home_dir).st_mode)[-3:]
-            if perm == "777":
-                print(f"User {username} has insecure permissions on {home_dir} ({perm})")
+
+print("\nChecking home directory permissions (looking for 777)...")
+insecure_users = []
+
+try:
+    with open(PASSWD_FILE, 'r') as f:
+        for line in f:
+            parts = line.split(":")
+            if len(parts) >= 6:
+                username = parts[0]
+                home_dir = parts[5].strip()
+                
+                if os.path.isdir(home_dir):
+                    try:
+                        perm_mode = os.stat(home_dir).st_mode
+                        # Extract the last three octal digits (e.g., '777')
