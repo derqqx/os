@@ -1,4 +1,4 @@
-import re
+(import re
 from collections import Counter
 import os
 
@@ -47,3 +47,4 @@ with open("/etc/passwd", "r") as f:
             perm = oct(os.stat(home_dir).st_mode)[-3:]
             if perm == "777":
                 print(f"User {username} has insecure permissions on {home_dir} ({perm})")
+)
